@@ -64,7 +64,7 @@ TinderApp/
 ├── 📄 .env.example            # File mẫu cấu hình các biến môi trường bảo mật
 ├── 📄 package.json / ...      # File quản lý các thư viện phụ thuộc (Dependencies)
 └── 📄 README.md               # Tài liệu hướng dẫn và giới thiệu dự án (File này)
-```text
+```
 📝 Mô tả chi tiết các file quan trọng:
 TinderCard: Đây là trái tim của giao diện Home. File này chứa thuật toán xử lý đồ họa, tính toán góc xoay dựa trên khoảng cách kéo dX, dY từ tâm màn hình.
 
@@ -91,15 +91,21 @@ Bước 1: Tải mã nguồn về máy
 Mở terminal trên máy tính của bạn và chạy lệnh:
 
 Bash
+```text
 git clone [https://github.com/vutuandat17/TinderApp.git](https://github.com/vutuandat17/TinderApp.git)
 cd TinderApp
+```
 Bước 2: Cài đặt các gói thư viện phụ thuộc (Dependencies)
 Cài đặt tất cả các thư viện được định nghĩa trong file cấu hình bằng một trong các lệnh sau:
 
 Bash
+```text
 npm install
+```
 # hoặc nếu bạn dùng yarn:
+```text
 yarn install
+```
 (Nếu đây là dự án iOS/React Native, hãy chạy thêm lệnh cài thư viện cấu trúc native: cd ios && pod install && cd ..)
 
 Bước 3: Thiết lập cấu hình hệ thống (Environment Variables)
@@ -107,7 +113,9 @@ Bước 3: Thiết lập cấu hình hệ thống (Environment Variables)
 Copy file mẫu môi trường để tạo file cấu hình chính thức:
 
 Bash
+```text
 cp .env.example .env
+```
 Mở file .env vừa tạo và điền các thông tin kết nối (như API Key, URL Server, hoặc cấu hình Firebase của riêng bạn).
 
 Bước 4: Khởi chạy ứng dụng
@@ -115,8 +123,12 @@ Bước 4: Khởi chạy ứng dụng
 Chạy trên thiết bị/máy ảo Android:
 
 Bash
+```text
 npm run android   # Hoặc: npx react-native run-android / flutter run
+```
 Chạy trên thiết bị/máy ảo iOS:
 
 Bash
+```text
 npm run ios       # Hoặc: npx react-native run-ios / flutter run
+```
