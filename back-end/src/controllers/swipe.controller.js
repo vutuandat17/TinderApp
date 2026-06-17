@@ -15,6 +15,14 @@ const swipe = asyncHandler(async (req, res) => {
   }
 
   const result = await createOrUpdateSwipe(req.user._id, targetUserId, direction);
+
+  if (result.match) {
+    const io = req.app.get("io");
+    result.match.users.forEach((user) => {
+      io?.to(`user:${user._id.toString()}`).emit("match:new", result.match);
+    });
+  }
+
   res.status(201).json({
     swipe: result.swipe,
     match: result.match,

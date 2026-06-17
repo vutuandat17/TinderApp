@@ -17,8 +17,10 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [matchBanner, setMatchBanner] = useState("");
+  const [error, setError] = useState("");
 
   const loadProfiles = useCallback(async () => {
+    setError("");
     const candidates = await discover();
     setUsers(candidates);
     setRemaining(candidates.length);
@@ -29,6 +31,7 @@ export default function ExploreScreen() {
       .catch(() => {
         setUsers([]);
         setRemaining(0);
+        setError("Unable to load profiles. Please try again.");
       })
       .finally(() => setLoading(false));
   }, [loadProfiles]);
@@ -37,24 +40,29 @@ export default function ExploreScreen() {
     setRefreshing(true);
     try {
       await loadProfiles();
+    } catch {
+      setError("Unable to refresh profiles. Please try again.");
     } finally {
       setRefreshing(false);
     }
   };
 
   const handleSwipe = async (user, direction) => {
-    setUsers((current) => {
-      const updated = current.filter((item) => item._id !== user._id);
-      setRemaining(updated.length);
-      return updated;
-    });
+    setUsers((current) => current.filter((item) => item._id !== user._id));
+    setRemaining((current) => Math.max(current - 1, 0));
 
-    const result = await sendSwipe(user._id, direction);
+    try {
+      const result = await sendSwipe(user._id, direction);
 
-    if (result.isMatch) {
-      const name = user.name || "someone";
-      setMatchBanner(`You matched with ${name}`);
-      setTimeout(() => setMatchBanner(""), 2500);
+      if (result.isMatch) {
+        const name = user.name || "someone";
+        setMatchBanner(`You matched with ${name}`);
+        setTimeout(() => setMatchBanner(""), 2500);
+      }
+    } catch (swipeError) {
+      setUsers((current) => [user, ...current]);
+      setRemaining((current) => current + 1);
+      setError(swipeError.message);
     }
   };
 
@@ -86,6 +94,13 @@ export default function ExploreScreen() {
         {loading ? (
           <View style={styles.loading}>
             <ActivityIndicator color="#ff4458" size="large" />
+          </View>
+        ) : error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable style={styles.retryButton} onPress={refresh}>
+              <Text style={styles.retryText}>Try again</Text>
+            </Pressable>
           </View>
         ) : (
           <CardStack
@@ -176,6 +191,19 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "800",
   },
+  errorBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 420,
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  errorText: {
+    color: "#ff4458",
+    fontSize: 16,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   actions: {
     flexDirection: "row",
     justifyContent: "center",
@@ -207,6 +235,18 @@ const styles = StyleSheet.create({
   like: {
     borderWidth: 1,
     borderColor: "#cef4df",
+  },
+  retryButton: {
+    marginTop: 12,
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#ff4458",
+  },
+  retryText: {
+    color: "#fff",
+    fontWeight: "800",
   },
   nopeText: {
     color: "#ff4458",

@@ -34,10 +34,25 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
-  const status = error.statusCode || 500;
+  let status = error.statusCode || 500;
   const payload = {
     message: error.message || "Internal server error",
   };
+
+  if (error.name === "CastError") {
+    status = 400;
+    payload.message = `Invalid ${error.path}`;
+  }
+
+  if (error.name === "ValidationError") {
+    status = 400;
+    payload.message = Object.values(error.errors)[0]?.message || "Validation failed";
+  }
+
+  if (error.code === 11000) {
+    status = 409;
+    payload.message = "Duplicate resource";
+  }
 
   if (process.env.NODE_ENV !== "production" && error.details) {
     payload.details = error.details;

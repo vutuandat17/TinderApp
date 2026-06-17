@@ -20,9 +20,25 @@ export default function LoginScreen() {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const isSignup = mode === "signup";
+  const isFormValid =
+    mode === "login"
+      ? form.email.trim() && form.password
+      : form.name.trim() && form.email.trim() && form.password.length >= 8 && form.birthDate;
+
   const submit = async () => {
     setLoading(true);
     setError("");
+
+    if (!isFormValid) {
+      setError(
+        mode === "login"
+          ? "Email and password are required."
+          : "Please fill in all sign-up fields and use a strong password.",
+      );
+      setLoading(false);
+      return;
+    }
 
     try {
       if (mode === "login") {
@@ -55,13 +71,19 @@ export default function LoginScreen() {
           <Button
             title="Login"
             variant={mode === "login" ? "primary" : "secondary"}
-            onPress={() => setMode("login")}
+            onPress={() => {
+              setMode("login");
+              setError("");
+            }}
             style={styles.segmentButton}
           />
           <Button
             title="Sign up"
             variant={mode === "signup" ? "primary" : "secondary"}
-            onPress={() => setMode("signup")}
+            onPress={() => {
+              setMode("signup");
+              setError("");
+            }}
             style={styles.segmentButton}
           />
         </View>

@@ -1,8 +1,13 @@
+const mongoose = require("mongoose");
 const Match = require("../models/Match");
 const Message = require("../models/Message");
 const httpError = require("../utils/httpError");
 
 async function assertUserInActiveMatch(matchId, userId) {
+  if (!mongoose.Types.ObjectId.isValid(matchId)) {
+    throw httpError(400, "Invalid match id");
+  }
+
   const match = await Match.findOne({ _id: matchId, users: userId, status: "active" });
 
   if (!match) {
@@ -14,15 +19,19 @@ async function assertUserInActiveMatch(matchId, userId) {
 
 async function listMessages(matchId, userId, limit = 50) {
   await assertUserInActiveMatch(matchId, userId);
+  const safeLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
 
   return Message.find({ match: matchId })
     .populate("sender", "name photos")
     .sort({ createdAt: -1 })
-    .limit(Number(limit) || 50);
+    .limit(safeLimit);
 }
 
 async function sendMessage({ matchId, senderId, text, imageUrl }) {
-  if (!text && !imageUrl) {
+  const trimmedText = typeof text === "string" ? text.trim() : "";
+  const trimmedImageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
+
+  if (!trimmedText && !trimmedImageUrl) {
     throw httpError(400, "Message text or image is required");
   }
 
@@ -30,13 +39,13 @@ async function sendMessage({ matchId, senderId, text, imageUrl }) {
   const message = await Message.create({
     match: matchId,
     sender: senderId,
-    text,
-    imageUrl,
+    text: trimmedText,
+    imageUrl: trimmedImageUrl,
     readBy: [senderId],
   });
 
   match.lastMessage = {
-    text: text || "Photo",
+    text: trimmedText || "Photo",
     sender: senderId,
     sentAt: message.createdAt,
   };
