@@ -1,0 +1,1122 @@
+openapi: 3.0.3
+info:
+  title: TinderApp REST API
+  version: 1.0.0
+  description: |
+    OpenAPI/Swagger specification for the TinderApp backend REST API.
+
+    **Core Features:**
+    - Authentication (Register, Login, JWT)
+    - User Profile Management
+    - Swipe Discovery & Match Logic
+    - Real-time Chat via WebSocket (Socket.IO)
+    - Photo Upload & Management
+
+    **Rate Limiting:**
+    - 100 requests per 15 minutes per IP (standard endpoints)
+    - 10 requests per 15 minutes per user (auth endpoints)
+    - See X-RateLimit-* headers in responses
+
+    **Authentication:**
+    All protected endpoints require `Authorization: Bearer <JWT_TOKEN>` header.
+    Tokens expire after 7 days by default.
+
+    **Response Format:**
+    - Successful responses: 200-201 with data
+    - Errors: 4xx-5xx with error message and optional details
+    - All timestamps in ISO 8601 format (UTC)
+servers:
+  - url: http://localhost:5000/api
+    description: Local development server
+  - url: https://api.tinderapp.com/api
+    description: Production server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT token obtained from /auth/login or /auth/register"
+  headers:
+    X-RateLimit-Limit:
+      description: Request limit per time window
+      schema:
+        type: integer
+    X-RateLimit-Remaining:
+      description: Requests remaining in current time window
+      schema:
+        type: integer
+    X-RateLimit-Reset:
+      description: Unix timestamp when rate limit window resets
+      schema:
+        type: integer
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - message
+    UserPhoto:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        publicId:
+          type: string
+        isPrimary:
+          type: boolean
+        uploadedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, verified, rejected]
+        metadata:
+          type: object
+          properties:
+            width:
+              type: integer
+            height:
+              type: integer
+            format:
+              type: string
+            size:
+              type: integer
+          additionalProperties: false
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        age:
+          type: integer
+          nullable: true
+        gender:
+          type: string
+          enum: [woman, man, nonbinary, other]
+        interestedIn:
+          type: array
+          items:
+            type: string
+            enum: [woman, man, nonbinary, other]
+        bio:
+          type: string
+        interests:
+          type: array
+          items:
+            type: string
+        jobTitle:
+          type: string
+        school:
+          type: string
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserPhoto"
+        location:
+          type: object
+          properties:
+            type:
+              type: string
+              example: Point
+            coordinates:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+        preferences:
+          type: object
+          properties:
+            maxDistanceKm:
+              type: number
+            ageRange:
+              type: object
+              properties:
+                min:
+                  type: integer
+                max:
+                  type: integer
+        isVerified:
+          type: boolean
+        lastActive:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - photos
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required:
+        - token
+        - user
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [woman, man, nonbinary, other]
+      required:
+        - name
+        - email
+        - password
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required:
+        - email
+        - password
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [woman, man, nonbinary, other]
+        interestedIn:
+          type: array
+          items:
+            type: string
+            enum: [woman, man, nonbinary, other]
+        bio:
+          type: string
+        interests:
+          type: array
+          items:
+            type: string
+        jobTitle:
+          type: string
+        school:
+          type: string
+        photos:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserPhoto"
+        location:
+          type: object
+          properties:
+            type:
+              type: string
+              example: Point
+            coordinates:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+        preferences:
+          type: object
+          properties:
+            maxDistanceKm:
+              type: number
+            ageRange:
+              type: object
+              properties:
+                min:
+                  type: integer
+                max:
+                  type: integer
+    DiscoveryResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+    SwipeRequest:
+      type: object
+      properties:
+        targetUserId:
+          type: string
+        direction:
+          type: string
+          enum: [like, nope, superlike]
+      required:
+        - targetUserId
+        - direction
+    SwipeResponse:
+      type: object
+      properties:
+        swipe:
+          type: object
+          properties:
+            _id:
+              type: string
+            swiper:
+              type: string
+            target:
+              type: string
+            direction:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+        match:
+          type: object
+          nullable: true
+        isMatch:
+          type: boolean
+    MatchSummary:
+      type: object
+      properties:
+        _id:
+          type: string
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        status:
+          type: string
+        unmatchedBy:
+          type: string
+          nullable: true
+        lastMessage:
+          type: object
+          properties:
+            text:
+              type: string
+            sender:
+              type: string
+            sentAt:
+              type: string
+              format: date-time
+        matchedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MatchListResponse:
+      type: object
+      properties:
+        matches:
+          type: array
+          items:
+            $ref: "#/components/schemas/MatchSummary"
+    MessageItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        match:
+          type: string
+        sender:
+          type: object
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+            photos:
+              type: array
+              items:
+                $ref: "#/components/schemas/UserPhoto"
+        text:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        readBy:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MessageListResponse:
+      type: object
+      properties:
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageItem"
+    MessageCreateRequest:
+      type: object
+      properties:
+        text:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+      required: []
+    PhotoUploadRequest:
+      type: object
+      properties:
+        photo:
+          type: string
+          format: binary
+          description: Image file (JPEG, PNG, max 5MB)
+      required:
+        - photo
+paths:
+  /health:
+    get:
+      summary: Server health check
+      tags:
+        - System
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  service:
+                    type: string
+                    example: tinder-clone-api
+                  timestamp:
+                    type: string
+                    format: date-time
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Authentication
+      operationId: registerUser
+      description: Create a new user account with email and password. Validates input fields and checks for unsafe content via AI filter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              name: "John Doe"
+              email: "john@example.com"
+              password: "SecurePass123"
+              birthDate: "1995-06-15"
+              gender: "man"
+      responses:
+        "201":
+          description: User created successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-RateLimit-Reset:
+              $ref: "#/components/headers/X-RateLimit-Reset"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+              example:
+                user:
+                  _id: "user123"
+                  name: "John Doe"
+                  email: "john@example.com"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          description: Validation error (invalid email, weak password, missing fields)
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Password must be at least 8 characters"
+        "409":
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Email john@example.com is already registered"
+        "422":
+          description: Unsafe content detected (AI filter violation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Message looks unsafe and needs review"
+                details:
+                  field: "bio"
+                  reason: "suspicious_content"
+  /auth/login:
+    post:
+      summary: User login
+      tags:
+        - Authentication
+      operationId: loginUser
+      description: Authenticate user with email and password. Returns JWT token valid for 7 days.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "john@example.com"
+              password: "SecurePass123"
+      responses:
+        "200":
+          description: Successful login
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+              example:
+                user:
+                  _id: "user123"
+                  name: "John Doe"
+                  email: "john@example.com"
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        "400":
+          description: Missing credentials
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Email and password are required"
+        "401":
+          description: Invalid email or password
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Invalid email or password"
+  /auth/me:
+    get:
+      summary: Get current user profile
+      tags:
+        - Authentication
+      operationId: getCurrentUser
+      description: Retrieve the authenticated user's profile information including photos, location, and preferences.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserProfile"
+              example:
+                user:
+                  _id: "user123"
+                  name: "John Doe"
+                  email: "john@example.com"
+                  age: 28
+                  gender: "man"
+                  bio: "Adventure seeker"
+                  photos:
+                    - _id: "photo1"
+                      url: "https://cloudinary.com/photo1.jpg"
+                      publicId: "tinderapp/photo1"
+                  location:
+                    type: Point
+                    coordinates: [105.8342, 21.0285]
+        "401":
+          description: Authentication required or token expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Invalid or expired token"
+    patch:
+      summary: Update current user profile
+      tags:
+        - Authentication
+      operationId: updateCurrentUser
+      description: Update user profile information. Does not include photo management (use photo endpoints for that).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdateRequest"
+            example:
+              name: "John Doe"
+              bio: "Love hiking and travel"
+              interests:
+                - "hiking"
+                - "movies"
+              location:
+                latitude: 21.0285
+                longitude: 105.8342
+      responses:
+        "200":
+          description: User profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Invalid request body or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Bio must be less than 500 characters"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Unsafe content detected (AI filter violation)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Bio contains unsafe content"
+    post:
+      summary: Upload profile photo
+      tags:
+        - Photos
+      operationId: uploadProfilePhoto
+      description: Upload a new profile photo. Max 5MB, JPEG/PNG format. User can have up to 6 photos.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PhotoUploadRequest"
+      responses:
+        "201":
+          description: Photo uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photo:
+                    $ref: "#/components/schemas/UserPhoto"
+              example:
+                photo:
+                  _id: "photo123"
+                  url: "https://cloudinary.com/tinderapp/photo123.jpg"
+                  publicId: "tinderapp/photo123"
+                  uploadedAt: "2024-01-15T10:30:00Z"
+        "400":
+          description: Invalid file or too many photos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Maximum 6 photos allowed per user"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Unsafe/inappropriate content in photo (AI filter)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Photo contains inappropriate content"
+  /auth/me/photos/{photoId}:
+    delete:
+      summary: Delete a profile photo
+      tags:
+        - Photos
+      operationId: deleteProfilePhoto
+      description: Delete a user's profile photo by ID. User must have at least one photo remaining.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: photoId
+          required: true
+          schema:
+            type: string
+          description: Photo ID to delete
+      responses:
+        "204":
+          description: Photo deleted successfully (no content)
+        "400":
+          description: Cannot delete last photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Cannot delete last photo. User must have at least one photo."
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Photo not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Photo with id photoId not found"
+  /swipes/discover:
+    get:
+      summary: Discover nearby users to swipe
+      tags:
+        - Discovery
+      operationId: discoverUsers
+      description: Get a list of nearby users that the current user hasn't swiped on yet. Results are filtered by distance, age, and gender preferences.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Maximum number of discovery users to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        "200":
+          description: Discovery candidates retrieved successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryResponse"
+              example:
+                users:
+                  - _id: "user456"
+                    name: "Jane Doe"
+                    age: 26
+                    photos:
+                      - url: "https://cloudinary.com/jane1.jpg"
+                    distance: 2.5
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /swipes:
+    post:
+      summary: Create or update a swipe action
+      tags:
+        - Swiping
+      operationId: createSwipe
+      description: Record a swipe action (like, nope, or superlike). If a swipe already exists on the same target, it will be updated. Creating mutual "like" swipes results in a match.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwipeRequest"
+            example:
+              target: "user456"
+              direction: "like"
+      responses:
+        "201":
+          description: Swipe saved successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwipeResponse"
+              example:
+                swipe:
+                  _id: "swipe123"
+                  swiper: "user123"
+                  target: "user456"
+                  direction: "like"
+                  match:
+                    _id: "match123"
+                    users:
+                      - "user123"
+                      - "user456"
+                isMatch: true
+        "400":
+          description: Invalid target user or direction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Cannot swipe on yourself"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Target user not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /matches:
+    get:
+      summary: List current user matches
+      tags:
+        - Matching
+      operationId: getMatches
+      description: Retrieve all active matches for the current user with pagination support.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of matches to return
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        "200":
+          description: Match list retrieved successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchListResponse"
+              example:
+                matches:
+                  - _id: "match123"
+                    users:
+                      - _id: "user456"
+                        name: "Jane Doe"
+                        photos:
+                          - url: "https://cloudinary.com/jane.jpg"
+                    status: "active"
+                    lastMessage:
+                      text: "Hey! How are you?"
+                      sender: "user456"
+                    matchedAt: "2024-01-15T09:30:00Z"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /matches/{matchId}/unmatch:
+    patch:
+      summary: Unmatch a user
+      tags:
+        - Matching
+      operationId: unmatchUser
+      description: Permanently remove a match. Both users will no longer see each other and cannot re-match automatically.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+          description: Match ID to unmatch
+      responses:
+        "200":
+          description: Match removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  match:
+                    $ref: "#/components/schemas/MatchSummary"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User is not part of this match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "You are not authorized to unmatch this user"
+        "404":
+          description: Match not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /chats/{matchId}/messages:
+    get:
+      summary: Get chat messages for a match
+      tags:
+        - Chat
+      operationId: getMessages
+      description: Retrieve message history for a specific match. Messages are returned in chronological order (oldest first).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+          description: Match ID to get messages for
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of messages to return (pagination)
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Pagination offset
+      responses:
+        "200":
+          description: Message history retrieved successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+              example:
+                messages:
+                  - _id: "msg123"
+                    match: "match123"
+                    sender:
+                      _id: "user456"
+                      name: "Jane Doe"
+                    text: "Hi! How's it going?"
+                    readBy:
+                      - "user123"
+                    createdAt: "2024-01-15T10:00:00Z"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User is not part of this match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "You don't have access to this chat"
+        "404":
+          description: Match not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Send a message in a match chat
+      tags:
+        - Chat
+      operationId: sendMessage
+      description: Send a text or image message in a match chat. Messages are broadcast in real-time via WebSocket to both users.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: matchId
+          required: true
+          schema:
+            type: string
+          description: Match ID to send message to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageCreateRequest"
+            example:
+              text: "Hey! How are you doing?"
+              imageUrl: null
+      responses:
+        "201":
+          description: Message sent successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    $ref: "#/components/schemas/MessageItem"
+              example:
+                message:
+                  _id: "msg456"
+                  match: "match123"
+                  sender:
+                    _id: "user123"
+                    name: "John Doe"
+                  text: "Hey! How are you doing?"
+                  readBy: []
+                  createdAt: "2024-01-15T10:30:00Z"
+        "400":
+          description: Invalid request (empty message, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Message cannot be empty"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: User is not part of this match
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Match not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Unsafe content detected (AI filter)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Message contains unsafe content"
+security:
+  - bearerAuth: []

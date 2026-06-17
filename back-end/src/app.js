@@ -1,14 +1,39 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const routes = require("./routes");
 
 const app = express();
+
+// Load Swagger UI only in development
+if (process.env.NODE_ENV !== "production") {
+  try {
+    const swaggerUi = require("swagger-ui-express");
+    const swaggerDocumentPath = path.join(__dirname, "../docs/openapi.yaml");
+    const yaml = require("js-yaml");
+
+    const swaggerDoc = fs.readFileSync(swaggerDocumentPath, "utf8");
+    const swaggerDocument = yaml.load(swaggerDoc);
+
+    app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    console.log("Swagger UI available at /api-docs");
+  } catch (error) {
+    console.warn("Warning: Failed to load Swagger UI:", error.message);
+  }
+}
 
 app.use((req, res, next) => {
   const allowedOrigin = process.env.CLIENT_ORIGIN || "*";
   res.header("Access-Control-Allow-Origin", allowedOrigin);
   res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PATCH, DELETE, OPTIONS",
+  );
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
