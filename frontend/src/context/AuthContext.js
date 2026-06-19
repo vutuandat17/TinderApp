@@ -21,14 +21,27 @@ export function AuthProvider({ children }) {
           AsyncStorage.getItem(USER_KEY),
         ]);
 
-        if (storedToken) {
-          setAuthToken(storedToken);
-          setToken(storedToken);
+        if (!storedToken) {
+          setIsBootstrapping(false);
+          return;
         }
+
+        setAuthToken(storedToken);
+        setToken(storedToken);
 
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         }
+
+        const response = await authApi.getMe();
+        const freshUser = response.user;
+        setUser(freshUser);
+        await AsyncStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+      } catch (error) {
+        setAuthToken(null);
+        setToken(null);
+        setUser(null);
+        await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
       } finally {
         setIsBootstrapping(false);
       }

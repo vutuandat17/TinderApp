@@ -13,6 +13,7 @@ const photoSchema = new mongoose.Schema(
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 80 },
+    email: { type: String, required: true, lowercase: true, trim: true },
     // unique: true ở đây đã tự động tạo Unique Index rồi
     email: {
       type: String,

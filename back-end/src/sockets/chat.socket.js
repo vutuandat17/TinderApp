@@ -46,12 +46,18 @@ function registerChatSocket(server, app) {
       }
     });
 
-    socket.on("typing", ({ matchId, isTyping }) => {
-      socket.to(matchId).emit("typing", {
-        matchId,
-        userId: socket.user._id.toString(),
-        isTyping: Boolean(isTyping),
-      });
+    socket.on("typing", async ({ matchId, isTyping }, callback) => {
+      try {
+        await assertUserInActiveMatch(matchId, socket.user._id);
+        socket.to(matchId).emit("typing", {
+          matchId,
+          userId: socket.user._id.toString(),
+          isTyping: Boolean(isTyping),
+        });
+        callback?.({ ok: true });
+      } catch (error) {
+        callback?.({ ok: false, message: error.message });
+      }
     });
   });
 

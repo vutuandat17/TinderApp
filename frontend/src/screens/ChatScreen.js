@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import ChatBubble from "../components/chat/ChatBubble";
 import MessageInput from "../components/chat/MessageInput";
 import { useAuth } from "../context/AuthContext";
@@ -9,17 +9,48 @@ import { getMessages, sendMessage } from "../services/swipe.api";
 export default function ChatScreen({ navigation, route }) {
   const { user: currentUser } = useAuth();
   const { socket, joinMatch, setTyping } = useSocket();
-  const { match, user } = route.params;
+  const { match, user: recipient } = route.params || {};
   const [messages, setMessages] = useState([]);
   const [typingUserId, setTypingUserId] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const matchId = match._id;
-  const title = useMemo(() => user?.name || "Chat", [user?.name]);
+  const matchId = match?._id;
+  const title = useMemo(() => recipient?.name || "Chat", [recipient?.name]);
 
   useEffect(() => {
-    joinMatch(matchId);
-    getMessages(matchId).then(setMessages).catch(() => setMessages([]));
-  }, [joinMatch, matchId]);
+    if (!match || !recipient) {
+      navigation.goBack();
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    const loadChat = async () => {
+      setLoading(true);
+
+      try {
+        await joinMatch(matchId);
+        const fetchedMessages = await getMessages(matchId);
+        if (isMounted) {
+          setMessages(fetchedMessages);
+        }
+      } catch {
+        if (isMounted) {
+          setMessages([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadChat();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [joinMatch, match, matchId, navigation, recipient]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -68,15 +99,26 @@ export default function ChatScreen({ navigation, route }) {
         </View>
       </View>
 
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.messages}
-        renderItem={({ item }) => {
-          const senderId = item.sender?._id || item.sender;
-          return <ChatBubble message={item} isMine={senderId === currentUser?.id} />;
-        }}
-      />
+      {loading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color="#ff4458" size="large" />
+        </View>
+      ) : (
+        <FlatList
+          data={messages}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.messages}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <Text style={styles.emptyChatText}>No messages yet. Say hello!</Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const senderId = item.sender?._id || item.sender;
+            return <ChatBubble message={item} isMine={senderId === currentUser?.id} />;
+          }}
+        />
+      )}
 
       <MessageInput onSend={handleSend} onTyping={(value) => setTyping(matchId, value)} />
     </View>

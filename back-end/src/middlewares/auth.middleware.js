@@ -11,7 +11,14 @@ const authMiddleware = asyncHandler(async (req, res, next) => {
     throw httpError(401, "Authentication token is required");
   }
 
-  const decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret");
+  let decoded;
+
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret");
+  } catch (error) {
+    throw httpError(401, "Invalid or expired authentication token");
+  }
+
   const user = await User.findById(decoded.sub);
 
   if (!user) {
