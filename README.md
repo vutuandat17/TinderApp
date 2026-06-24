@@ -180,5 +180,3 @@ Bash
 ```text
 npm run ios       # Hoặc: npx react-native run-ios / flutter run
 ```
-
-> > > > > > > f2d39d96df96dba723b2ba646e63cc5adefb47d4
