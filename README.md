@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-
 # Tinder Clone
 
 Full-stack starter for a Tinder-style dating app clone.
