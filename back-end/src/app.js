@@ -1,33 +1,47 @@
 const express = require("express");
+const cors = require("cors"); // 🌟 1. Thêm thư viện cors chính thức ở đây
 const routes = require("./routes");
-const swaggerUi = require("swagger-ui-express"); // 🌟 1. Thêm dòng này
-const swaggerJsdoc = require("swagger-jsdoc"); // 🌟 2. Thêm dòng này
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsdoc = require("swagger-jsdoc");
 
 const app = express();
 
-app.use((req, res, next) => {
-  const allowedOrigin = process.env.CLIENT_ORIGIN || "*";
-  res.header("Access-Control-Allow-Origin", allowedOrigin);
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PATCH, DELETE, OPTIONS",
-  );
+// 🌟 2. THAY THẾ CẤU HÌNH CORS THỦ CÔNG BẰNG THƯ VIỆN CORS CHUẨN
+const allowedOrigins = [
+  "http://localhost:8081", // Cổng của Expo Web
+  "http://localhost:19000",
+  "http://127.0.0.1:8081",
+];
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  return next();
-});
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Cho phép gọi không cần origin (như Mobile App, Postman) hoặc nằm trong danh sách, hoặc đang ở môi trường Dev
+      if (
+        !origin ||
+        allowedOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Bị chặn bởi cơ chế bảo mật CORS của Server!"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+    ],
+  }),
+);
 
 app.use(express.json({ limit: "2mb" }));
 
-// --- 🌟 3. THÊM ĐOẠN CẤU HÌNH SWAGGER VÀO ĐÂY ---
+// --- CẤU HÌNH SWAGGER VÀO ĐÂY ---
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
@@ -42,12 +56,11 @@ const swaggerOptions = {
       },
     ],
   },
-  // Đường dẫn quét comment để tạo docs, quét toàn bộ file trong thư mục routes và file app.js
-  apis: ["./src/routes/*.js", "./src/routes/**/*.js", "./src/app.js"],
+  // 🌟 Đã sửa lại đường dẫn động để quét chính xác thư mục routes dù chạy từ bất kỳ đâu
+  apis: ["src/routes/*.js", "src/routes/**/*.js", "src/app.js", "./src/app.js"],
 };
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
-// Đăng ký route chính thức cho Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 // ------------------------------------------------
 
@@ -55,19 +68,19 @@ app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  * @swagger
  * /health:
  *   get:
- *      summary: Kiểm tra trạng thái hệ thống
- *      description: Trả về trạng thái hoạt động hiện tại của API server.
- *      responses:
- *         200:
- *           description: Server hoạt động bình thường.
- *           content:
- *             application/json:
- *               schema:
- *                 type: object
- *                 properties:
- *                   status:
- *                     type: string
- *                     example: ok
+ *     summary: Kiểm tra trạng thái hệ thống
+ *     description: Trả về trạng thái hoạt động hiện tại của API server.
+ *     responses:
+ *       200:
+ *         description: Server hoạt động bình thường.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
  */
 app.get("/health", (req, res) => {
   res.json({
@@ -97,7 +110,8 @@ app.use((error, req, res, next) => {
 
   if (error.name === "ValidationError") {
     status = 400;
-    payload.message = Object.values(error.errors)[0]?.message || "Validation failed";
+    payload.message =
+      Object.values(error.errors)[0]?.message || "Validation failed";
   }
 
   if (error.code === 11000) {
